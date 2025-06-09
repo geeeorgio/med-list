@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
+import { isSameDay, isBefore } from "date-fns";
 
 interface MedicationEntry {
   id: string;
@@ -16,9 +17,19 @@ function generateMonthEntries(startDate: Date) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  for (let i = 0; i < 30; i++) {
-    const date = new Date(startDate);
-    date.setDate(startDate.getDate() + i);
+  // Get the first day of the month
+  const firstDay = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  // Get the last day of the month
+  const lastDay = new Date(
+    startDate.getFullYear(),
+    startDate.getMonth() + 1,
+    0
+  );
+
+  // Generate entries only for the current month
+  for (let i = 0; i < lastDay.getDate(); i++) {
+    const date = new Date(firstDay);
+    date.setDate(firstDay.getDate() + i);
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, "0");
     const dd = String(date.getDate()).padStart(2, "0");
@@ -162,57 +173,69 @@ function App() {
           Следующий месяц
         </button>
       </div>
-      <div className="table-container">
-        <table className="med-table">
-          <thead>
-            <tr>
-              <th>Дата</th>
-              <th>Дозировка</th>
-              <th>Статус</th>
-              <th>Заметки</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentMonthEntries.map((entry) => {
-              const date = new Date(entry.date);
-              const isToday = new Date().toDateString() === date.toDateString();
-              const isCurrentMonth = date.getMonth() === new Date().getMonth();
+      <div className="table-wrapper">
+        <div className="table-container">
+          <table className="med-table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Дозировка</th>
+                <th>Статус</th>
+                <th>Заметки</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentMonthEntries.map((entry) => {
+                const date = new Date(entry.date);
+                const isToday = isSameDay(date, new Date());
+                const isPastDate = isBefore(date, new Date()) && !isToday;
+                const isCurrentMonth =
+                  date.getMonth() === new Date().getMonth();
 
-              return (
-                <tr key={entry.id} className={isToday ? "today-row" : ""}>
-                  <td>
-                    <div
-                      className={`date-cell ${isToday ? "today" : ""} ${
-                        isCurrentMonth ? "current-month" : ""
-                      }`}
-                    >
-                      {date.toLocaleDateString("ru-RU", {
-                        day: "numeric",
-                        month: "long",
-                        weekday: "long",
-                      })}
-                    </div>
-                  </td>
-                  <td>{entry.dosage}</td>
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={entry.taken}
-                      onChange={() => handleToggle(entry.id)}
-                    />
-                  </td>
-                  <td>{entry.notes || "-"}</td>
-                  <td>
-                    <button className="btn" onClick={() => handleEdit(entry)}>
-                      Редактировать
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                return (
+                  <tr key={entry.id} className={isToday ? "today-row" : ""}>
+                    <td>
+                      <div
+                        className={`date-cell ${
+                          isPastDate ? "past-date" : ""
+                        } ${isToday ? "today" : ""} ${
+                          isCurrentMonth ? "current-month" : ""
+                        }`}
+                      >
+                        <span className="date-month">
+                          {date.toLocaleDateString("ru-RU", {
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                        <span className="weekday">
+                          {date.toLocaleDateString("ru-RU", {
+                            weekday: "short",
+                          })}
+                        </span>
+                      </div>
+                    </td>
+                    <td>{entry.dosage}</td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={entry.taken}
+                        onChange={() => handleToggle(entry.id)}
+                      />
+                    </td>
+                    <td>{entry.notes || "-"}</td>
+                    <td>
+                      <button className="btn" onClick={() => handleEdit(entry)}>
+                        Изменить
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {editEntry && (

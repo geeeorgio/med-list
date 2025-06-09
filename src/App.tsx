@@ -3,18 +3,37 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./App.css";
 
+interface MedicationEntry {
+  id: string;
+  date: string;
+  dosage: string;
+  taken: boolean;
+  notes: string;
+}
+
 function generateMonthEntries(startDate: Date) {
-  const result = [];
+  const result: MedicationEntry[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   for (let i = 0; i < 30; i++) {
     const date = new Date(startDate);
     date.setDate(startDate.getDate() + i);
     const yyyy = date.getFullYear();
     const mm = String(date.getMonth() + 1).padStart(2, "0");
     const dd = String(date.getDate()).padStart(2, "0");
+    const dateStr = yyyy + "-" + mm + "-" + dd;
+
+    // Calculate days difference from today to determine dosage
+    const daysDiff = Math.floor(
+      (date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const dosage = daysDiff % 2 === 0 ? "75mg" : "50mg";
+
     result.push({
-      id: yyyy + "-" + mm + "-" + dd,
-      date: yyyy + "-" + mm + "-" + dd,
-      dosage: i % 2 === 0 ? "50mg" : "75mg",
+      id: dateStr,
+      date: dateStr,
+      dosage: dosage,
       taken: false,
       notes: "",
     });
@@ -28,180 +47,184 @@ function getCurrentMonthStart() {
   return now;
 }
 
-function formatDateWithWeekday(dateStr: string) {
-  const date = new Date(dateStr);
-  const days = [
-    "Воскресенье",
-    "Понедельник",
-    "Вторник",
-    "Среда",
-    "Четверг",
-    "Пятница",
-    "Суббота",
-  ];
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
-  const weekday = days[date.getDay()];
-  return { formatted: `${day}.${month}.${year}`, weekday };
-}
-
 function App() {
   const [startDate, setStartDate] = useState(() => {
     const saved = localStorage.getItem("medication-entries-start");
     return saved ? new Date(saved) : getCurrentMonthStart();
   });
-  const [entries, setEntries] = useState(() => {
-    const saved = localStorage.getItem("medication-entries");
-    if (saved) return JSON.parse(saved);
-    return generateMonthEntries(getCurrentMonthStart());
-  });
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<{
-    dosage: string;
-    taken: boolean;
-    notes: string;
-  }>({ dosage: "50mg", taken: false, notes: "" });
 
+  const [allEntries, setAllEntries] = useState<Record<string, MedicationEntry>>(
+    () => {
+      const saved = localStorage.getItem("medication-entries");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          console.error("Failed to parse saved entries from localStorage");
+          return {};
+        }
+      }
+      return {};
+    }
+  );
+
+  const [currentMonthEntries, setCurrentMonthEntries] = useState<
+    MedicationEntry[]
+  >(() => {
+    return generateMonthEntries(startDate);
+  });
+
+  const [editEntry, setEditEntry] = useState<MedicationEntry | null>(null);
+
+  // Save all entries to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem("medication-entries", JSON.stringify(entries));
+    localStorage.setItem("medication-entries", JSON.stringify(allEntries));
+  }, [allEntries]);
+
+  // Save startDate to localStorage whenever it changes
+  useEffect(() => {
     localStorage.setItem("medication-entries-start", startDate.toISOString());
-  }, [entries, startDate]);
+  }, [startDate]);
+
+  // Update current month entries when startDate or allEntries change
+  useEffect(() => {
+    const newEntries = generateMonthEntries(startDate);
+    const updatedEntries = newEntries.map((entry) => {
+      const savedEntry = allEntries[entry.id];
+      return savedEntry || entry;
+    });
+    setCurrentMonthEntries(updatedEntries);
+  }, [startDate, allEntries]);
 
   const handleToggle = (id: string) => {
-    setEntries((prev: typeof entries) =>
-      prev.map((entry: (typeof entries)[0]) =>
-        entry.id === id ? { ...entry, taken: !entry.taken } : entry
-      )
-    );
+    setAllEntries((prev) => {
+      const entry = prev[id] || currentMonthEntries.find((e) => e.id === id);
+      if (!entry) return prev;
+
+      const updatedEntry = { ...entry, taken: !entry.taken };
+      return { ...prev, [id]: updatedEntry };
+    });
     toast.info("Статус обновлён");
+  };
+
+  const handleEdit = (entry: MedicationEntry) => {
+    setEditEntry(entry);
+  };
+
+  const handleEditSave = (updatedEntry: MedicationEntry) => {
+    setAllEntries((prev) => ({
+      ...prev,
+      [updatedEntry.id]: updatedEntry,
+    }));
+    setEditEntry(null);
+    toast.success("Запись обновлена!");
+  };
+
+  const handleEditCancel = () => {
+    setEditEntry(null);
   };
 
   const handlePrevMonth = () => {
     const newStart = new Date(startDate);
     newStart.setDate(newStart.getDate() - 30);
     setStartDate(newStart);
-    setEntries(generateMonthEntries(newStart));
   };
+
   const handleNextMonth = () => {
     const newStart = new Date(startDate);
     newStart.setDate(newStart.getDate() + 30);
     setStartDate(newStart);
-    setEntries(generateMonthEntries(newStart));
   };
+
   const handleCurrentMonth = () => {
     const now = getCurrentMonthStart();
     setStartDate(now);
-    setEntries(generateMonthEntries(now));
   };
 
-  const handleEdit = (entry: (typeof entries)[0]) => {
-    setEditId(entry.id);
-    setEditData({
-      dosage: entry.dosage,
-      taken: entry.taken,
-      notes: entry.notes || "",
-    });
-  };
-  const handleEditSave = () => {
-    setEntries((prev: typeof entries) =>
-      prev.map((entry: (typeof entries)[0]) =>
-        entry.id === editId ? { ...entry, ...editData } : entry
-      )
-    );
-    setEditId(null);
-    toast.success("Запись обновлена!");
+  const formatMonthYear = (date: Date) => {
+    return date.toLocaleString("ru-RU", { month: "long", year: "numeric" });
   };
 
   return (
     <div className="centered-app">
       <ToastContainer position="top-center" autoClose={2000} />
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "1.5rem",
-          marginBottom: "1.5rem",
-        }}
-      >
+      <div className="month-header">
+        <h1>{formatMonthYear(startDate)}</h1>
+      </div>
+      <div className="med-form">
         <button className="btn" onClick={handlePrevMonth}>
-          ← Предыдущий месяц
+          Предыдущий месяц
         </button>
         <button className="btn" onClick={handleCurrentMonth}>
           Текущий месяц
         </button>
         <button className="btn" onClick={handleNextMonth}>
-          Следующий месяц →
+          Следующий месяц
         </button>
       </div>
       <div className="table-container">
         <table className="med-table">
           <thead>
             <tr>
-              <th>День недели</th>
               <th>Дата</th>
               <th>Дозировка</th>
+              <th>Статус</th>
               <th>Заметки</th>
-              <th>Принято</th>
               <th>Действия</th>
             </tr>
           </thead>
           <tbody>
-            {entries.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="no-records">
-                  Нет записей
-                </td>
-              </tr>
-            ) : (
-              entries.map((entry: (typeof entries)[0]) => {
-                const { formatted, weekday } = formatDateWithWeekday(
-                  entry.date
-                );
-                return (
-                  <tr key={entry.id}>
-                    <td className="weekday-cell">{weekday}</td>
-                    <td>{formatted}</td>
-                    <td>{entry.dosage}</td>
-                    <td
-                      style={{
-                        maxWidth: 180,
-                        whiteSpace: "pre-line",
-                        wordBreak: "break-word",
-                        color: "#555",
-                      }}
+            {currentMonthEntries.map((entry) => {
+              const date = new Date(entry.date);
+              const isToday = new Date().toDateString() === date.toDateString();
+              const isCurrentMonth = date.getMonth() === new Date().getMonth();
+
+              return (
+                <tr key={entry.id} className={isToday ? "today-row" : ""}>
+                  <td>
+                    <div
+                      className={`date-cell ${isToday ? "today" : ""} ${
+                        isCurrentMonth ? "current-month" : ""
+                      }`}
                     >
-                      {entry.notes || "-"}
-                    </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={entry.taken}
-                        onChange={() => handleToggle(entry.id)}
-                      />
-                    </td>
-                    <td>
-                      <button className="btn" onClick={() => handleEdit(entry)}>
-                        Редактировать
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
+                      {date.toLocaleDateString("ru-RU", {
+                        day: "numeric",
+                        month: "long",
+                        weekday: "long",
+                      })}
+                    </div>
+                  </td>
+                  <td>{entry.dosage}</td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={entry.taken}
+                      onChange={() => handleToggle(entry.id)}
+                    />
+                  </td>
+                  <td>{entry.notes || "-"}</td>
+                  <td>
+                    <button className="btn" onClick={() => handleEdit(entry)}>
+                      Редактировать
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
-      {editId && (
+
+      {editEntry && (
         <div className="modal-overlay">
           <div className="modal-card">
             <h2>Редактировать запись</h2>
             <div className="form-group">
               <label>Дозировка</label>
               <select
-                value={editData.dosage}
+                value={editEntry.dosage}
                 onChange={(e) =>
-                  setEditData({ ...editData, dosage: e.target.value })
+                  setEditEntry({ ...editEntry, dosage: e.target.value })
                 }
               >
                 <option value="50mg">50mg</option>
@@ -211,49 +234,30 @@ function App() {
             <div className="form-group">
               <label>Заметки</label>
               <textarea
-                value={editData.notes}
+                value={editEntry.notes}
                 onChange={(e) =>
-                  setEditData({ ...editData, notes: e.target.value })
+                  setEditEntry({ ...editEntry, notes: e.target.value })
                 }
                 rows={3}
-                style={{
-                  width: "100%",
-                  borderRadius: 8,
-                  border: "1px solid #e5e5ea",
-                  padding: "0.7rem 1rem",
-                  fontSize: "1rem",
-                  background: "#f9f9f9",
-                  color: "#1c1c1e",
-                  resize: "vertical",
-                }}
                 placeholder="Добавьте заметки..."
               />
             </div>
-            <div
-              className="form-group"
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: "0.7rem",
-              }}
-            >
+            <div className="form-group checkbox-group">
               <input
                 type="checkbox"
-                checked={editData.taken}
+                checked={editEntry.taken}
                 onChange={(e) =>
-                  setEditData({ ...editData, taken: e.target.checked })
+                  setEditEntry({ ...editEntry, taken: e.target.checked })
                 }
                 id="edit-taken"
               />
-              <label htmlFor="edit-taken" style={{ margin: 0 }}>
-                Принято
-              </label>
+              <label htmlFor="edit-taken">Принято</label>
             </div>
-            <div style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}>
-              <button className="btn" onClick={handleEditSave}>
+            <div className="modal-actions">
+              <button className="btn" onClick={() => handleEditSave(editEntry)}>
                 Сохранить
               </button>
-              <button className="btn" onClick={() => setEditId(null)}>
+              <button className="btn btn-secondary" onClick={handleEditCancel}>
                 Отмена
               </button>
             </div>

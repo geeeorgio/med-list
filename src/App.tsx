@@ -247,37 +247,25 @@ function App() {
                   setEditEntry({ ...editEntry, dosage: e.target.value })
                 }
               >
-                <option value="50mg">50mg</option>
-                <option value="75mg">75mg</option>
+                <option value="50 мг">50 мг</option>
+                <option value="75 мг">75 мг</option>
               </select>
             </div>
             <div className="form-group">
               <label>Заметки</label>
-              <textarea
+              <input
+                type="text"
                 value={editEntry.notes}
                 onChange={(e) =>
                   setEditEntry({ ...editEntry, notes: e.target.value })
                 }
-                rows={3}
-                placeholder="Добавьте заметки..."
               />
-            </div>
-            <div className="form-group checkbox-group">
-              <input
-                type="checkbox"
-                checked={editEntry.taken}
-                onChange={(e) =>
-                  setEditEntry({ ...editEntry, taken: e.target.checked })
-                }
-                id="edit-taken"
-              />
-              <label htmlFor="edit-taken">Принято</label>
             </div>
             <div className="modal-actions">
               <button className="btn" onClick={() => handleEditSave(editEntry)}>
                 Сохранить
               </button>
-              <button className="btn btn-secondary" onClick={handleEditCancel}>
+              <button className="btn" onClick={handleEditCancel}>
                 Отмена
               </button>
             </div>

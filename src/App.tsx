@@ -35,11 +35,8 @@ function generateMonthEntries(startDate: Date) {
     const dd = String(date.getDate()).padStart(2, "0");
     const dateStr = yyyy + "-" + mm + "-" + dd;
 
-    // Calculate days difference from today to determine dosage
-    const daysDiff = Math.floor(
-      (date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const dosage = daysDiff % 2 === 0 ? "75mg" : "50mg";
+    // Чередуем дозировку: четные дни - 50мг, нечетные - 75мг
+    const dosage = i % 2 === 0 ? "50 мг" : "75 мг";
 
     result.push({
       id: dateStr,

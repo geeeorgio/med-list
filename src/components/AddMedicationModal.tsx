@@ -11,7 +11,7 @@ export const AddMedicationModal = ({
   const [formData, setFormData] = useState({
     name: "",
     time: new Date().toTimeString().slice(0, 5),
-    dosage: "50mg",
+    dosage: "50 мг",
     taken: false,
     notes: "",
   });
@@ -22,7 +22,7 @@ export const AddMedicationModal = ({
     setFormData({
       name: "",
       time: new Date().toTimeString().slice(0, 5),
-      dosage: "50mg",
+      dosage: "50 мг",
       taken: false,
       notes: "",
     });
@@ -115,8 +115,8 @@ export const AddMedicationModal = ({
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
                       required
                     >
-                      <option value="50mg">50mg</option>
-                      <option value="75mg">75mg</option>
+                      <option value="50 мг">50 мг</option>
+                      <option value="75 мг">75 мг</option>
                     </select>
                   </div>
 

@@ -26,6 +26,11 @@ function generateMonthEntries(startDate: Date) {
     0
   );
 
+  // Определяем начальную дозировку на основе дня месяца
+  // Если день месяца четный - начинаем с 50мг, если нечетный - с 75мг
+  const startDay = firstDay.getDate();
+  let isEvenDay = startDay % 2 === 0;
+
   // Generate entries only for the current month
   for (let i = 0; i < lastDay.getDate(); i++) {
     const date = new Date(firstDay);
@@ -35,8 +40,9 @@ function generateMonthEntries(startDate: Date) {
     const dd = String(date.getDate()).padStart(2, "0");
     const dateStr = yyyy + "-" + mm + "-" + dd;
 
-    // Чередуем дозировку: четные дни - 50мг, нечетные - 75мг
-    const dosage = i % 2 === 0 ? "50 мг" : "75 мг";
+    // Чередуем дозировку на основе четности дня
+    const dosage = isEvenDay ? "50 мг" : "75 мг";
+    isEvenDay = !isEvenDay; // Меняем четность для следующего дня
 
     result.push({
       id: dateStr,

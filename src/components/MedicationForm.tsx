@@ -11,7 +11,7 @@ export const MedicationForm = ({ onSubmit }: MedicationFormProps) => {
     name: "",
     notes: "",
     taken: false,
-    dosage: "50mg",
+    dosage: "50 мг",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -22,7 +22,7 @@ export const MedicationForm = ({ onSubmit }: MedicationFormProps) => {
       name: "",
       notes: "",
       taken: false,
-      dosage: "50mg",
+      dosage: "50 мг",
     });
   };
 
@@ -66,14 +66,14 @@ export const MedicationForm = ({ onSubmit }: MedicationFormProps) => {
           <label htmlFor="dosage">Дозировка</label>
           <select
             id="dosage"
-            value={formData.dosage || "50mg"}
+            value={formData.dosage || "50 мг"}
             onChange={(e) =>
               setFormData({ ...formData, dosage: e.target.value })
             }
             required
           >
-            <option value="50mg">50mg</option>
-            <option value="75mg">75mg</option>
+            <option value="50 мг">50 мг</option>
+            <option value="75 мг">75 мг</option>
           </select>
         </div>
         <div className="form-group">

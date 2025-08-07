@@ -1,63 +1,58 @@
 import { useState, useEffect } from "react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import {
+  isSameDay,
+  isBefore,
+  format,
+  differenceInDays,
+  lastDayOfMonth,
+  startOfMonth,
+  eachDayOfInterval,
+} from "date-fns";
+import { ru } from "date-fns/locale";
+import { PenBox } from "lucide-react";
+
 import "./App.css";
-import { isSameDay, isBefore } from "date-fns";
 
 interface MedicationEntry {
   id: string;
   date: string;
+  weekday: string;
   dosage: string;
   taken: boolean;
   notes: string;
 }
 
-function generateMonthEntries(startDate: Date) {
-  const result: MedicationEntry[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+const BASE_DATE = new Date(2023, 0, 1);
 
-  // Get the first day of the month
-  const firstDay = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-  // Get the last day of the month
-  const lastDay = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth() + 1,
-    0
-  );
+function generateMonthEntries(startDate = new Date()) {
+  const year = startDate.getFullYear();
+  const month = startDate.getMonth();
+  const daysInMonth = lastDayOfMonth(new Date(year, month));
 
-  // Определяем начальную дозировку на основе дня месяца
-  // Если день месяца четный - начинаем с 50мг, если нечетный - с 75мг
-  const startDay = firstDay.getDate();
-  let isEvenDay = startDay % 2 === 0;
+  return eachDayOfInterval({
+    start: startOfMonth(new Date(year, month)),
+    end: daysInMonth,
+  }).map((date) => {
+    const diffInDays = differenceInDays(date, BASE_DATE);
+    const dosage = diffInDays % 2 !== 0 ? "50 мг" : "75 мг";
 
-  // Generate entries only for the current month
-  for (let i = 0; i < lastDay.getDate(); i++) {
-    const date = new Date(firstDay);
-    date.setDate(firstDay.getDate() + i);
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    const dateStr = yyyy + "-" + mm + "-" + dd;
-
-    // Чередуем дозировку на основе четности дня
-    const dosage = isEvenDay ? "50 мг" : "75 мг";
-    isEvenDay = !isEvenDay; // Меняем четность для следующего дня
-
-    result.push({
-      id: dateStr,
-      date: dateStr,
-      dosage: dosage,
+    return {
+      id: format(date, "yyyy-MM-dd"),
+      date: format(date, "dd.MM"),
+      weekday: format(date, "EEE", { locale: ru }),
+      dosage,
       taken: false,
       notes: "",
-    });
-  }
-  return result;
+    };
+  });
 }
 
 function getCurrentMonthStart() {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
+  now.setDate(1);
   return now;
 }
 
@@ -82,39 +77,27 @@ function App() {
     }
   );
 
-  const [currentMonthEntries, setCurrentMonthEntries] = useState<
-    MedicationEntry[]
-  >(() => {
-    return generateMonthEntries(startDate);
-  });
-
   const [editEntry, setEditEntry] = useState<MedicationEntry | null>(null);
 
-  // Save all entries to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("medication-entries", JSON.stringify(allEntries));
   }, [allEntries]);
 
-  // Save startDate to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("medication-entries-start", startDate.toISOString());
   }, [startDate]);
 
-  // Update current month entries when startDate or allEntries change
-  useEffect(() => {
-    const newEntries = generateMonthEntries(startDate);
-    const updatedEntries = newEntries.map((entry) => {
-      const savedEntry = allEntries[entry.id];
-      return savedEntry || entry;
-    });
-    setCurrentMonthEntries(updatedEntries);
-  }, [startDate, allEntries]);
+  const generatedEntries = generateMonthEntries(startDate);
+
+  const currentMonthEntries = generatedEntries.map((entry) => {
+    const savedEntry = allEntries[entry.id];
+    return savedEntry || entry;
+  });
 
   const handleToggle = (id: string) => {
     setAllEntries((prev) => {
       const entry = prev[id] || currentMonthEntries.find((e) => e.id === id);
       if (!entry) return prev;
-
       const updatedEntry = { ...entry, taken: !entry.taken };
       return { ...prev, [id]: updatedEntry };
     });
@@ -139,15 +122,21 @@ function App() {
   };
 
   const handlePrevMonth = () => {
-    const newStart = new Date(startDate);
-    newStart.setDate(newStart.getDate() - 30);
-    setStartDate(newStart);
+    setStartDate((prevDate) => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(1);
+      newDate.setMonth(newDate.getMonth() - 1);
+      return newDate;
+    });
   };
 
   const handleNextMonth = () => {
-    const newStart = new Date(startDate);
-    newStart.setDate(newStart.getDate() + 30);
-    setStartDate(newStart);
+    setStartDate((prevDate) => {
+      const newDate = new Date(prevDate);
+      newDate.setDate(1);
+      newDate.setMonth(newDate.getMonth() + 1);
+      return newDate;
+    });
   };
 
   const handleCurrentMonth = () => {
@@ -156,7 +145,7 @@ function App() {
   };
 
   const formatMonthYear = (date: Date) => {
-    return date.toLocaleString("ru-RU", { month: "long", year: "numeric" });
+    return format(date, "LLLL yyyy", { locale: ru });
   };
 
   return (
@@ -182,41 +171,29 @@ function App() {
             <thead>
               <tr>
                 <th>Дата</th>
-                <th>Дозировка</th>
-                <th>Статус</th>
+                <th>Доза</th>
+                <th>Прием</th>
                 <th>Заметки</th>
-                <th>Действия</th>
+                <th>Изменить</th>
               </tr>
             </thead>
             <tbody>
               {currentMonthEntries.map((entry) => {
-                const date = new Date(entry.date);
+                const date = new Date(entry.id);
                 const isToday = isSameDay(date, new Date());
                 const isPastDate = isBefore(date, new Date()) && !isToday;
-                const isCurrentMonth =
-                  date.getMonth() === new Date().getMonth();
 
                 return (
-                  <tr key={entry.id} className={isToday ? "today-row" : ""}>
+                  <tr
+                    key={entry.id}
+                    className={
+                      isToday ? "today-row" : isPastDate ? "past-date-row" : ""
+                    }
+                  >
                     <td>
-                      <div
-                        className={`date-cell ${
-                          isPastDate ? "past-date" : ""
-                        } ${isToday ? "today" : ""} ${
-                          isCurrentMonth ? "current-month" : ""
-                        }`}
-                      >
-                        <span className="date-month">
-                          {date.toLocaleDateString("ru-RU", {
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </span>
-                        <span className="weekday">
-                          {date.toLocaleDateString("ru-RU", {
-                            weekday: "short",
-                          })}
-                        </span>
+                      <div className="date-cell">
+                        <span className="date-month">{entry.date}</span>
+                        <span className="weekday">{entry.weekday}</span>
                       </div>
                     </td>
                     <td>{entry.dosage}</td>
@@ -229,8 +206,11 @@ function App() {
                     </td>
                     <td>{entry.notes || "-"}</td>
                     <td>
-                      <button className="btn" onClick={() => handleEdit(entry)}>
-                        Изменить
+                      <button
+                        className="btn-icon"
+                        onClick={() => handleEdit(entry)}
+                      >
+                        <PenBox />
                       </button>
                     </td>
                   </tr>
